@@ -1,0 +1,42 @@
+{
+  "user_agent": "z2e-fsr41-box",
+  "optiscaler": {
+    "stable": {
+      "repo": "optiscaler/OptiScaler",
+      "tag": "v0.9.4",
+      "asset_contains": ["OptiScaler", ".7z"],
+      "fallback_url": "https://github.com/optiscaler/OptiScaler/releases/download/v0.9.4/OptiScaler-v0.9.4.7z"
+    },
+    "nightly": {
+      "repo": "optiscaler/OptiScaler",
+      "tag": "nightly",
+      "asset_contains": [".7z"]
+    }
+  },
+  "fsr_int8": {
+    "4.1.1b": {
+      "repo": "Agustinm28/OptiScaler-Extras",
+      "release_name_contains": "4.1.1b",
+      "prefer": "INT 8",
+      "fallback_url": "https://github.com/Agustinm28/OptiScaler-Extras/releases/latest"
+    },
+    "4.1.1": {
+      "repo": "Agustinm28/OptiScaler-Extras",
+      "release_name_contains": "FSR 4.1.1 - INT",
+      "prefer": "INT 8"
+    },
+    "4.0.2c": {
+      "repo": "Agustinm28/OptiScaler-Extras",
+      "release_name_contains": "4.0.2c",
+      "prefer": "INT 8"
+    }
+  },
+  "mirrors": {
+    "fsr_int8": [
+      "https://github.com/daniel-h-0/bc250-fsr4-fork/releases",
+      "https://github.com/benjamimgois/OptiScaler-builds/releases/tag/fsr-int8-411b",
+      "https://github.com/007Lore/AMD-FSR-4-INT8/releases"
+    ]
+  },
+  "notes": "asset_contains — подстроки имени файла релизного ассета. Реальные filename/size/sha256 дописывает fetch в cache/manifest.json. fallback_url — best-effort на случай 403 по API."
+}
