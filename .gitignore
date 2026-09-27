@@ -1,0 +1,12 @@
+# Чужие бинарники в git не храним
+*.dll
+*.7z
+*.zip
+
+# Кэш загрузок
+cache/
+
+# Состояние/бэкапы тестовой игры
+testdata/fake-game/.z2e-*
+.z2e-backup/
+.z2e-state.json
