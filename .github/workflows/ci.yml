@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pwsh:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Парсинг всех .ps1 (pwsh 7)
+        shell: pwsh
+        run: |
+          $bad = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $t = $null; $e = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$t, [ref]$e) | Out-Null
+            if ($e -and $e.Count) { $bad = 1; $e | ForEach-Object { Write-Host "$($_.File):$($_.Extent.StartLineNumber) $($_.Message)" } }
+            Write-Host "parsed: $($_.Name)"
+          }
+          exit $bad
+
+      - name: Fake install → doctor → uninstall
+        shell: pwsh
+        run: |
+          $env:Z2E_FAKE_PAYLOAD = '1'
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 fetch
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 install --game testdata/fake-game --dry-run
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 install --game testdata/fake-game
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 doctor --game testdata/fake-game
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 uninstall --game testdata/fake-game
+
+      - name: В репозитории нет ни одного .dll
+        shell: pwsh
+        run: |
+          $dlls = @(git ls-files | Where-Object { $_ -like '*.dll' })
+          if ($dlls.Count) { $dlls; exit 1 }
+          Write-Host 'dll в git: нет'
