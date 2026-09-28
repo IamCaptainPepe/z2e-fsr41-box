@@ -85,15 +85,20 @@ Fsr4Update=false
 }
 
 function Invoke-Z2EDownload {
-    # Скачивание ассета; при 403/ошибке API — fallback_url из versions.json
+    # Скачивание ассета; при 403/ошибке API — fallback_url из versions.json.
+    # Пишем в .part и двигаем атомарно — оборванный файл не отравит кэш.
     param([string]$Url, [string]$OutFile, [hashtable]$Headers, [string]$FallbackUrl)
+    $part = "$OutFile.part"
     try {
-        Invoke-WebRequest -Uri $Url -OutFile $OutFile -Headers $Headers
+        Invoke-WebRequest -Uri $Url -OutFile $part -Headers $Headers
+        Move-Item -Force $part $OutFile
         return
     } catch {
+        Remove-Item -Force $part -ErrorAction SilentlyContinue
         if ($FallbackUrl) {
             Write-Warning "Прямая загрузка не удалась ($_), пробую fallback: $FallbackUrl"
-            Invoke-WebRequest -Uri $FallbackUrl -OutFile $OutFile -Headers $Headers
+            Invoke-WebRequest -Uri $FallbackUrl -OutFile $part -Headers $Headers
+            Move-Item -Force $part $OutFile
             return
         }
         throw
@@ -138,7 +143,7 @@ function Invoke-Z2EFetch {
     $fsrCfg = $v.fsr_int8.$Fsr
     if (-not $fsrCfg) { throw "Версия FSR '$Fsr' не описана в versions.json" }
     Write-Host "FSR INT8: $($fsrCfg.repo) ~ '$($fsrCfg.release_name_contains)'"
-    $rels = Get-GH "https://api.github.com/repos/$($fsrCfg.repo)/releases"
+    $rels = Get-GH "https://api.github.com/repos/$($fsrCfg.repo)/releases?per_page=100"
     $cand = @($rels | Where-Object { $_.name -like "*$($fsrCfg.release_name_contains)*" })
     $best = $null
     if ($fsrCfg.prefer) { $best = @($cand | Where-Object { $_.name -like "*$($fsrCfg.prefer)*" }) | Select-Object -First 1 }

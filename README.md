@@ -51,7 +51,7 @@ RDNA 3.5 iGPU (Z2E / 890M) AMD не открыла: нативного драй�
 Нужен PowerShell 7 (`pwsh`).
 
 ```powershell
-git clone https://github.com/<user>/z2e-fsr41-box.git
+git clone https://github.com/IamCaptainPepe/z2e-fsr41-box.git
 cd z2e-fsr41-box
 
 # 1. Скачать релизы (GitHub Releases API, кэш в %LOCALAPPDATA%\z2e-fsr41\cache)

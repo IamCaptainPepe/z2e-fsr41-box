@@ -9,7 +9,7 @@ function Get-Z2EFsrSection {
     foreach ($line in (Get-Content $IniPath)) {
         if ($line -match '^\s*\[(.+?)\]') { $inFsr = ($Matches[1] -eq 'FSR'); continue }
         if ($inFsr -and $line -notmatch '^\s*[;#]' -and $line -match '^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*(?:;.*)?$') {
-            $vals[$Matches[1].ToLower()] = $Matches[2]
+            $vals[$Matches[1].ToLower()] = $Matches[2].ToLower()
         }
     }
     $vals

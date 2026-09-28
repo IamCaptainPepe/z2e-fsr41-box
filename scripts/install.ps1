@@ -118,13 +118,13 @@ function Invoke-Z2EInstall {
         $osUp = @(Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'amd_fidelityfx_upscaler*.dll')
         $fsrUp = Get-ChildItem (Join-Path $tmp 'fsr') -Recurse -Filter 'amd_fidelityfx_upscaler*.dll' | Select-Object -First 1
         if (-not $fsrUp) { throw 'В архиве FSR INT8 не найден upscaler-диалект (amd_fidelityfx_upscaler*.dll)' }
-        # Имя upscaler берём из распакованного архива, не хардкодим
-        $upName = if ($osUp.Count -ge 1) { $osUp[0].Name } else { $fsrUp.Name }
+        # Имя upscaler — каноническое из INT8-архива (то, что грузит DX12-путь OptiScaler)
+        $upName = $fsrUp.Name
 
         # 4) Бэкап существующих файлов
         $backupDir = Join-Path $Game '.z2e-backup'
         New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-        $watch = @($injectDllName, 'OptiScaler.dll', 'OptiScaler.ini', 'dxgi.dll', 'winmm.dll', 'version.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll') | Select-Object -Unique
+        $watch = @($injectDllName, 'OptiScaler.dll', 'OptiScaler.ini', 'dxgi.dll', 'winmm.dll', 'version.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll', $upName) | Select-Object -Unique
         $backups = @()
         foreach ($t in $watch) {
             $src = Join-Path $Game $t
