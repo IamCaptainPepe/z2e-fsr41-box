@@ -67,7 +67,17 @@ trade, not a free upgrade.
 ### 7-Zip
 
 OptiScaler releases are `.7z`. Install **7-Zip** and keep `7z` (or `7za`/`7zr`)
-on `PATH`. `.zip` assets need nothing extra. Tests (`Z2E_FAKE_PAYLOAD=1`) use zip only.
+on `PATH` — required for real `.7z` downloads. `.zip` assets need nothing extra.
+Tests (`Z2E_FAKE_PAYLOAD=1`) use zip only.
+
+If Fetch/Install fails with "archive empty", the `.7z` unwrapped into a nested
+wrapper folder — the installer now locates `OptiScaler.dll` recursively and
+flattens from the directory that contains it (Agility SDK subfolder
+`D3D12_OptiScaler` is copied too).
+
+The canonical FSR INT8 extras repo is
+[Optiscaler-Client/Optiscaler-Extras](https://github.com/Optiscaler-Client/Optiscaler-Extras)
+(pinned in `versions.json`; direct `.7z` fallback URLs, not HTML pages).
 
 ## Anticheat warning
 

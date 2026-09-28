@@ -19,6 +19,16 @@ function Invoke-Z2EUninstall {
             Write-Host "удалён: $f"
         }
     }
+    # 1b) Папки (Agility SDK: D3D12_OptiScaler и пр.)
+    if ($s.copiedDirs) {
+        foreach ($d in @($s.copiedDirs)) {
+            $p = Join-Path $Game $d
+            if (Test-Path $p -PathType Container) {
+                Remove-Item -Recurse -Force $p
+                Write-Host "удалена папка: $d\"
+            }
+        }
+    }
 
     # 2) Восстанавливаем бэкапы
     $backupDir = Join-Path $Game '.z2e-backup'

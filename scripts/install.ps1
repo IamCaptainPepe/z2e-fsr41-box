@@ -119,9 +119,19 @@ function Invoke-Z2EInstall {
         Expand-Z2EArchive -Archive $osZip  -Dest (Join-Path $tmp 'os')
         Expand-Z2EArchive -Archive $fsrZip -Dest (Join-Path $tmp 'fsr')
 
-        $osIniSrc = Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'OptiScaler.ini' | Select-Object -First 1
-        # INT8 upscaler: несколько масок — в extras-архивах имя бывает не каноническое
-        $upMasks = @('amd_fidelityfx_upscaler*.dll', '*upscaler*.dll')
+        # A) .7z OptiScaler может распаковываться в wrapper-папку: ищем OptiScaler.dll
+        #    рекурсивно; $osRoot = папка, СОДЕРЖАЩАЯ OptiScaler.dll (не wrapper-корень).
+        $osDll = Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'OptiScaler.dll' -File | Select-Object -First 1
+        if (-not $osDll) {
+            $seen = @(Get-ChildItem (Join-Path $tmp 'os') -Recurse -File | ForEach-Object { $_.Name }) -join ', '
+            throw "Архив OptiScaler пуст (OptiScaler.dll не найден рекурсивно). Файлы в архиве: $seen"
+        }
+        $osRoot = $osDll.Directory.FullName
+
+        $osIniSrc = Get-ChildItem $osRoot -Recurse -Filter 'OptiScaler.ini' | Select-Object -First 1
+        # B) INT8 upscaler: маски по приоритету, первое совпадение выигрывает.
+        #    amdxcffx64.dll копируется под СВОИМ именем (не переименовывается).
+        $upMasks = @('amd_fidelityfx_upscaler*.dll', '*upscaler*.dll', 'amdxcffx64.dll', 'amd_fidelityfx_dx12.dll')
         $fsrUp = $null
         foreach ($mask in $upMasks) {
             $fsrUp = Get-ChildItem (Join-Path $tmp 'fsr') -Recurse -Filter $mask | Select-Object -First 1
@@ -135,8 +145,13 @@ function Invoke-Z2EInstall {
         $upName = $fsrUp.Name
 
         # 4) Бэкап существующих файлов (включая всё, что кладёт бандл OptiScaler)
-        $bundleFiles = @(Get-ChildItem (Join-Path $tmp 'os') -File)
-        if (-not $bundleFiles.Count) { throw 'Архив OptiScaler пуст (в корне архива нет файлов)' }
+        #    Берём ВСЕ файлы из $osRoot; setup.bat и *.md в игру не тащим.
+        $bundleFiles = @(Get-ChildItem $osRoot -File | Where-Object {
+            $_.Name -ne 'setup.bat' -and $_.Name -notmatch '(?i)\.md$'
+        })
+        if (-not $bundleFiles.Count) { throw 'Архив OptiScaler пуст (в папке с OptiScaler.dll нет файлов)' }
+        # Agility SDK: подпапка D3D12* рядом с OptiScaler.dll (например D3D12_OptiScaler)
+        $agilityDirs = @(Get-ChildItem $osRoot -Directory | Where-Object { $_.Name -match '(?i)^D3D12' })
         $backupDir = Join-Path $Game '.z2e-backup'
         New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
         $watch = (@($injectDllName, 'OptiScaler.dll', 'OptiScaler.ini', 'dxgi.dll', 'winmm.dll', 'version.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll', $upName) + @($bundleFiles | ForEach-Object { $_.Name })) | Select-Object -Unique
@@ -168,6 +183,14 @@ function Invoke-Z2EInstall {
         if ($upName -notin $copied) { $copied += $upName }
         Write-Host "INT8 upscaler: $upName <- $($fsrUp.Name) (из архива Extras)"
 
+        # 6b) Agility SDK-папка (D3D12_OptiScaler и пр.) — целиком, в copiedDirs
+        $copiedDirs = @()
+        foreach ($d in $agilityDirs) {
+            Copy-Item -Recurse -Force $d.FullName (Join-Path $Game $d.Name)
+            if ($d.Name -notin $copiedDirs) { $copiedDirs += $d.Name }
+            Write-Host "agility: $($d.Name)\"
+        }
+
         # 7) INI: берём ini релиза, мержим профиль Z2E
         $iniPath = Join-Path $Game 'OptiScaler.ini'
         if (-not (Test-Path $iniPath)) {
@@ -186,6 +209,7 @@ function Invoke-Z2EInstall {
             inject    = $Inject
             exe       = $exeItem.FullName
             copied    = $copied
+            copiedDirs = $copiedDirs
             backups   = $backups
             upscaler  = $upName
             iniKeys   = $keys

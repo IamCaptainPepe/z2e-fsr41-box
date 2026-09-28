@@ -15,22 +15,22 @@
   },
   "fsr_int8": {
     "4.1.1b": {
-      "repo": "Agustinm28/OptiScaler-Extras",
+      "repo": "Optiscaler-Client/Optiscaler-Extras",
       "release_name_contains": "4.1.1b",
       "prefer": "INT 8",
-      "fallback_url": "https://github.com/Agustinm28/OptiScaler-Extras/releases/download/FSR_4.1.1b/FSR4_INT8_4.1.1b.7z"
+      "fallback_url": "https://github.com/Optiscaler-Client/Optiscaler-Extras/releases/download/FSR_4.1.1b/FSR4_INT8_4.1.1b.7z"
     },
     "4.1.1": {
-      "repo": "Agustinm28/OptiScaler-Extras",
+      "repo": "Optiscaler-Client/Optiscaler-Extras",
       "release_name_contains": "FSR 4.1.1 - INT",
       "prefer": "INT 8",
-      "fallback_url": "https://github.com/Agustinm28/OptiScaler-Extras/releases/download/FSR_4.1.1/FSR4_INT8_4.1.1.7z"
+      "fallback_url": "https://github.com/Optiscaler-Client/Optiscaler-Extras/releases/download/FSR_4.1.1/FSR4_INT8_4.1.1.7z"
     },
     "4.0.2c": {
-      "repo": "Agustinm28/OptiScaler-Extras",
+      "repo": "Optiscaler-Client/Optiscaler-Extras",
       "release_name_contains": "4.0.2c",
       "prefer": "INT 8",
-      "fallback_url": "https://github.com/Agustinm28/OptiScaler-Extras/releases/download/FSR_4.0.2c/FSR4_INT8_4.0.2c_with_RDNA2_fix.7z"
+      "fallback_url": "https://github.com/Optiscaler-Client/Optiscaler-Extras/releases/download/FSR_4.0.2c/FSR4_INT8_4.0.2c_with_RDNA2_fix.7z"
     }
   },
   "mirrors": {
