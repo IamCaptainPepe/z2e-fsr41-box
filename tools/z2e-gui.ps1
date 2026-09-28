@@ -177,7 +177,7 @@ $lblStatus.Text = 'Status: Ready'
 $lblStatus.Location = New-Object System.Drawing.Point(500, 118)
 $lblStatus.Size = New-Object System.Drawing.Size(190, 18)
 $lblStatus.Anchor = 'Top,Right'
-$lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 9, 'Bold')
+$lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]'Bold')
 $lblStatus.TextAlign = 'MiddleRight'
 $form.Controls.Add($lblStatus)
 
