@@ -262,6 +262,13 @@ $txtExe.Add_TextChanged({ Update-StatusFromPaths })
 
 $btnFetch.Add_Click({
     $res = Invoke-GuiAction -CliArgs @('fetch')
+    if ($res.Text -match '7-Zip required') {
+        Add-Log 'NOTE: install 7-Zip (7z on PATH), then Fetch again.'
+        [System.Windows.Forms.MessageBox]::Show('7-Zip required: install 7-Zip and add 7z to PATH, then Fetch again.',
+            'Z2E FSR 4.1 Box', 'OK', 'Warning') | Out-Null
+        Set-Status 'Failed'
+        return
+    }
     if ($res.Text -match '(?i)7-?zip') {
         Add-Log 'NOTE: OptiScaler releases are .7z — install 7-Zip and make sure 7z is on PATH.'
     }
@@ -286,6 +293,11 @@ $btnInstall.Add_Click({
         [System.Windows.Forms.MessageBox]::Show(
             "In-game: Insert → FSR 3.X/4 → FFX 4.1.1`n`nWatermark must read FSR4-i8. FSR3 means the force failed.",
             'Installed', 'OK', 'Information') | Out-Null
+    }
+    elseif ($res.Text -match '7-Zip required') {
+        [System.Windows.Forms.MessageBox]::Show('7-Zip required: install 7-Zip and add 7z to PATH, then Fetch again.',
+            'Z2E FSR 4.1 Box', 'OK', 'Warning') | Out-Null
+        Set-Status 'Failed'
     }
     elseif ($res.Text -match '--i-understand-anticheat') {
         [System.Windows.Forms.MessageBox]::Show($res.Text, 'Anticheat detected',

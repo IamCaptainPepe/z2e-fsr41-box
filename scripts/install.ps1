@@ -85,6 +85,8 @@ function Invoke-Z2EInstall {
     # 1) Целевой exe
     $exeItem = Find-Z2EExe -Game $Game -Exe $Exe
     Write-Host "Целевой exe: $($exeItem.FullName)"
+    # 1b) Место установки — ВСЕГДА рядом с exe (--game остаётся корнем поиска).
+    $dest = $exeItem.Directory.FullName
 
     # 2) Кэш
     $cache = Get-Z2ECacheDir
@@ -104,7 +106,8 @@ function Invoke-Z2EInstall {
     $injectDllName = "$Inject.dll"
     if ($DryRun) {
         Write-Host '--- DRY RUN, ничего не меняю ---'
-        Write-Host "game:     $Game"
+        Write-Host "game:     $Game (search root)"
+        Write-Host "dest:     $dest (сюда лягут все файлы)"
         Write-Host "exe:      $($exeItem.Name)"
         Write-Host "inject:   $injectDllName (OptiScaler.dll переименовывается в прокси; один прокси, как в Manual Installation)"
         Write-Host "optiscaler: $($m.optiscaler.file) ($($m.optiscaler.tag))"
@@ -116,6 +119,9 @@ function Invoke-Z2EInstall {
     # 3) Распаковка во временную папку
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('z2e-' + [guid]::NewGuid().ToString('N'))
     try {
+        # 7z-гард: реальные релизы — .7z; фейк-тесты (zip) не трогаем
+        Test-Z2E7Zip -ArchiveName (Split-Path $osZip -Leaf)
+        Test-Z2E7Zip -ArchiveName (Split-Path $fsrZip -Leaf)
         Expand-Z2EArchive -Archive $osZip  -Dest (Join-Path $tmp 'os')
         Expand-Z2EArchive -Archive $fsrZip -Dest (Join-Path $tmp 'fsr')
 
@@ -152,12 +158,12 @@ function Invoke-Z2EInstall {
         if (-not $bundleFiles.Count) { throw 'Архив OptiScaler пуст (в папке с OptiScaler.dll нет файлов)' }
         # Agility SDK: подпапка D3D12* рядом с OptiScaler.dll (например D3D12_OptiScaler)
         $agilityDirs = @(Get-ChildItem $osRoot -Directory | Where-Object { $_.Name -match '(?i)^D3D12' })
-        $backupDir = Join-Path $Game '.z2e-backup'
+        $backupDir = Join-Path $dest '.z2e-backup'
         New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
         $watch = (@($injectDllName, 'OptiScaler.dll', 'OptiScaler.ini', 'dxgi.dll', 'winmm.dll', 'version.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll', $upName) + @($bundleFiles | ForEach-Object { $_.Name })) | Select-Object -Unique
         $backups = @()
         foreach ($t in $watch) {
-            $src = Join-Path $Game $t
+            $src = Join-Path $dest $t
             if (Test-Path $src -PathType Leaf) {
                 Copy-Item $src (Join-Path $backupDir $t) -Force
                 $backups += $t
@@ -170,29 +176,29 @@ function Invoke-Z2EInstall {
         $copied = @()
         foreach ($f in $bundleFiles) {
             if ($f.Name -eq 'OptiScaler.dll') {
-                Copy-Item $f.FullName (Join-Path $Game $injectDllName) -Force
+                Copy-Item $f.FullName (Join-Path $dest $injectDllName) -Force
                 $copied += $injectDllName
             } else {
-                Copy-Item $f.FullName (Join-Path $Game $f.Name) -Force
+                Copy-Item $f.FullName (Join-Path $dest $f.Name) -Force
                 if ($f.Name -notin $copied) { $copied += $f.Name }
             }
         }
 
         # 6) INT8 upscaler: заменяем одноимённый файл бандла реальным INT8-файлом
-        Copy-Item $fsrUp.FullName (Join-Path $Game $upName) -Force
+        Copy-Item $fsrUp.FullName (Join-Path $dest $upName) -Force
         if ($upName -notin $copied) { $copied += $upName }
         Write-Host "INT8 upscaler: $upName <- $($fsrUp.Name) (из архива Extras)"
 
         # 6b) Agility SDK-папка (D3D12_OptiScaler и пр.) — целиком, в copiedDirs
         $copiedDirs = @()
         foreach ($d in $agilityDirs) {
-            Copy-Item -Recurse -Force $d.FullName (Join-Path $Game $d.Name)
+            Copy-Item -Recurse -Force $d.FullName (Join-Path $dest $d.Name)
             if ($d.Name -notin $copiedDirs) { $copiedDirs += $d.Name }
             Write-Host "agility: $($d.Name)\"
         }
 
         # 7) INI: берём ini релиза, мержим профиль Z2E
-        $iniPath = Join-Path $Game 'OptiScaler.ini'
+        $iniPath = Join-Path $dest 'OptiScaler.ini'
         if (-not (Test-Path $iniPath)) {
             if (-not $osIniSrc) { throw 'Ни в игре, ни в архиве нет OptiScaler.ini для мержа' }
             Copy-Item $osIniSrc.FullName $iniPath
@@ -207,6 +213,7 @@ function Invoke-Z2EInstall {
             channel   = $Channel
             fsr       = $Fsr
             inject    = $Inject
+            dest      = $dest
             exe       = $exeItem.FullName
             copied    = $copied
             copiedDirs = $copiedDirs
@@ -214,9 +221,9 @@ function Invoke-Z2EInstall {
             upscaler  = $upName
             iniKeys   = $keys
         }
-        $state | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $Game '.z2e-state.json') -Encoding UTF8
+        $state | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $dest '.z2e-state.json') -Encoding UTF8
 
-        Write-Host "[ok] Установлено в $Game (inject=$injectDllName, FSR INT8=$Fsr)"
+        Write-Host "[ok] Установлено в $dest (рядом с $($exeItem.Name); inject=$injectDllName, FSR INT8=$Fsr)"
         Write-Host 'Проверка в игре: Insert → выбрать FSR 4 → ватермарк должен быть FSR4-i8 / 4.1.1.'
         Write-Host 'FSR3 в ватермарке = форс не сработал (fallback). Подробности: README.'
     }

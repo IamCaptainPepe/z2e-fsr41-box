@@ -103,6 +103,13 @@ pwsh ./tools/z2e-fsr41.ps1 uninstall --game "D:\Games\Foo"
 Default channel: OptiScaler **v0.9.4** + FSR **4.1.1b INT8** (fallback 4.1.1 → 4.0.2c),
 pinned in `versions.json`.
 
+Files are always written **next to the selected `.exe`** — `dxgi.dll`,
+`OptiScaler.ini`, `.z2e-backup\`, `.z2e-state.json` all land in the exe's own
+folder (e.g. `bin\x64`). `--game` is only the search root when you do not pass
+`--exe`; when `--exe` is given it is not the copy target. `doctor` and
+`uninstall` accept the Steam root: they locate `.z2e-state.json` (root first,
+then depth 3) and operate on the folder that contains it.
+
 - `install` without `--exe` picks the largest exe in the game root (skipping
   launcher/crash/setup/easyanticheat…), falling back to a depth-3 search
   (`bin/x64`, `Win64`); ties require `--exe`.

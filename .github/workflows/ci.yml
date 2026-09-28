@@ -32,6 +32,22 @@ jobs:
           pwsh -NoProfile -File tools/z2e-fsr41.ps1 doctor --game testdata/fake-game
           pwsh -NoProfile -File tools/z2e-fsr41.ps1 uninstall --game testdata/fake-game
 
+      - name: Dest beside exe (nested bin/x64)
+        shell: pwsh
+        run: |
+          $env:Z2E_FAKE_PAYLOAD = '1'
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 install --game testdata/fake-game --exe testdata/fake-game/bin/x64/game.exe
+          if (-not (Test-Path testdata/fake-game/bin/x64/dxgi.dll)) { Write-Host 'FAIL: dxgi.dll not in bin/x64'; exit 1 }
+          if (Test-Path testdata/fake-game/dxgi.dll) { Write-Host 'FAIL: dxgi.dll landed in game root'; exit 1 }
+          if (-not (Test-Path testdata/fake-game/bin/x64/OptiScaler.ini)) { Write-Host 'FAIL: ini not in bin/x64'; exit 1 }
+          if (-not (Test-Path testdata/fake-game/bin/x64/.z2e-state.json)) { Write-Host 'FAIL: state not in bin/x64'; exit 1 }
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 doctor --game testdata/fake-game
+          pwsh -NoProfile -File tools/z2e-fsr41.ps1 uninstall --game testdata/fake-game
+          if (Test-Path testdata/fake-game/bin/x64/.z2e-state.json) { Write-Host 'FAIL: state left behind'; exit 1 }
+          $left = @(Get-ChildItem testdata/fake-game/bin/x64 -Force | Where-Object { $_.Name -ne 'game.exe' })
+          if ($left.Count) { $left; exit 1 }
+          Write-Host 'dest-beside-exe OK'
+
       - name: GUI selftest (headless fake cycle through the GUI action layer)
         shell: pwsh
         run: pwsh -NoProfile -File tools/z2e-gui.ps1 -SelfTest

@@ -19,11 +19,15 @@ function Invoke-Z2EDoctor {
     param([string]$Game)
     if (-not $Game) { Write-Host '[fail] Нужен --game'; return 1 }
     $Game = (Resolve-Path $Game).Path
-    $statePath = Join-Path $Game '.z2e-state.json'
-    if (-not (Test-Path $statePath -PathType Leaf)) {
-        Write-Host '[fail] .z2e-state.json нет — эта игра не устанавливалась через z2e-fsr41'
+    # state рядом с exe: сначала <path>, иначе глубина 3 (Find-Z2EStateDir в uninstall.ps1)
+    $dir = Find-Z2EStateDir -Path $Game
+    if (-not $dir) {
+        Write-Host '[fail] .z2e-state.json нет (ни в папке, ни на глубине 3) — эта игра не устанавливалась через z2e-fsr41'
         return 1
     }
+    if ($dir -ne $Game) { Write-Host "state найден рядом с exe: $dir" }
+    $Game = $dir
+    $statePath = Join-Path $Game '.z2e-state.json'
     $s = Get-Content -Raw $statePath | ConvertFrom-Json
     $fail = @()
 

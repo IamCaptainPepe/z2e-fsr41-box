@@ -2,6 +2,16 @@
 # Основной путь — GitHub Releases API (не парсинг HTML). При 403 — fallback_url.
 # Z2E_FAKE_PAYLOAD=1 — генерация фейковых архивов для тестов (CI без сети).
 
+function Test-Z2E7Zip {
+    # Реальные релизы OptiScaler — .7z. Без 7z в PATH установка обрывается сразу,
+    # с коротким английским сообщением (его же показывает GUI).
+    param([string]$ArchiveName)
+    if ($ArchiveName -notlike '*.7z') { return }
+    if (-not (Get-Command 7z, 7za, 7zr -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+        throw '7-Zip required: install 7-Zip and add 7z to PATH, then Fetch again.'
+    }
+}
+
 function Get-Z2ECacheDir {
     # Windows: %LOCALAPPDATA%; вне Windows (CI/тесты): XDG cache
     if ($env:LOCALAPPDATA) { $base = $env:LOCALAPPDATA }
@@ -135,6 +145,7 @@ function Invoke-Z2EFetch {
         (@($contains | Where-Object { $n -like "*$_*" })).Count -eq $contains.Count
     } | Select-Object -First 1
     if (-not $asset) { throw "В релизе $osTag нет ассета, подходящего под asset_contains: $($contains -join ', ')" }
+    Test-Z2E7Zip -ArchiveName $asset.name
     $osFile = Join-Path $cache $asset.name
     Invoke-Z2EDownload -Url $asset.browser_download_url -OutFile $osFile -Headers $headers -FallbackUrl $osCfg.fallback_url
     Write-Host "[ok] $($asset.name) ($([math]::Round($asset.size/1MB,1)) MB)"
@@ -151,6 +162,7 @@ function Invoke-Z2EFetch {
     if (-not $best) { throw "Релиз FSR INT8 '$Fsr' не найден (зеркала: $($v.mirrors.fsr_int8 -join ' '))" }
     $asset2 = @($best.assets | Where-Object { $_.name -like '*.zip' -or $_.name -like '*.7z' }) | Select-Object -First 1
     if (-not $asset2) { throw "В релизе '$($best.name)' нет zip/7z ассетов" }
+    Test-Z2E7Zip -ArchiveName $asset2.name
     $fsrFile = Join-Path $cache $asset2.name
     Invoke-Z2EDownload -Url $asset2.browser_download_url -OutFile $fsrFile -Headers $headers -FallbackUrl $fsrCfg.fallback_url
     Write-Host "[ok] $($asset2.name)"
