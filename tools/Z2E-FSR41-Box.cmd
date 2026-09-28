@@ -6,4 +6,6 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-pwsh -NoProfile -File "%~dp0z2e-gui.ps1"
+set "GUI_ARGS="
+if "%Z2E_COMPACT%"=="1" set "GUI_ARGS=-Compact"
+pwsh -NoProfile -File "%~dp0z2e-gui.ps1" %GUI_ARGS%
