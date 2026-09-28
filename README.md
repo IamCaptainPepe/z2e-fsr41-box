@@ -1,108 +1,132 @@
-# z2e-fsr41-box
+# Z2E FSR 4.1 Box
 
-*EN: Thin PowerShell 7 installer-wrapper for running **FSR 4.1 INT8** (via OptiScaler) on
-Ryzen **Z2 Extreme** handhelds (Radeon 890M, RDNA 3.5, gfx1150): ROG Xbox Ally X, MSI Claw A8
-BZ2EM and similar. It downloads other people's releases, installs them next to the game exe,
-writes the Z2E profile, supports backup/uninstall/doctor. No AMD/FSR/OptiScaler binaries in
-this repo. Windows only in v1.*
+A thin **PowerShell 7 installer-wrapper** that runs **FSR 4.1 INT8** (via
+[OptiScaler](https://github.com/optiscaler/OptiScaler)) on Ryzen **Z2 Extreme**
+handhelds (iGPU Radeon 890M, RDNA 3.5 / gfx1150): ROG Xbox Ally X, MSI Claw A8
+BZ2EM and similar. It downloads other people's releases, installs them next to
+the game exe, writes the Z2E profile, and supports backup / uninstall / doctor.
+**No AMD / FSR / OptiScaler binaries are bundled in this repo.** Windows only in v1.*
 
-## Для кого
+## What this is / is not
 
-Владельцы ROG Xbox Ally X / MSI Claw A8 (Z2E, iGPU Radeon 890M, RDNA 3.5 / gfx1150), которые
-хотят картинку FSR 4 в играх с DLSS/FSR-апскейлом.
+- **Is**: a GUI + CLI installer. You pick a game `.exe`, click Install, get FSR 4
+  watermarks in-game.
+- **Is not**: a fork of OptiScaler, a copy of OptiScaler Client, a mod loader,
+  a Steam/Epic/Xbox library scanner. No library detection, no Avalonia, no Electron.
+  The engine scripts (`scripts/*.ps1`, `tools/z2e-fsr41.ps1`) are the real tool;
+  the GUI is a WinForms shell on top of them.
 
-**Это НЕ форк OptiScaler и НЕ копия OptiScaler Client.** Только обёртка-установщик:
-скачивает чужие релизы, ставит в папку игры, пишет профиль Z2E, умеет backup/uninstall/doctor.
+## Why a wrapper exists (no official FSR 4 on Z2E)
 
-## Чего нет (и не будет в v1)
+Officially, FSR 4.1.1 **INT8** is RDNA 3 desktop (RX 7000) and FP8 is RDNA 4.
+AMD has **not** enabled the RDNA 3.5 iGPU (Z2 Extreme / Radeon 890M / gfx1150):
+there is **no native driver-side FSR 4** on the Ally X.
 
-- AMD/FSR/OptiScaler DLL в репозитории — их тут нет и не будет (см. NOTICE.md).
-- GUI — не делаем. При желании профиль `profiles/z2e-fsr41.ini` можно импортировать в
-  [OptiScaler Client](https://github.com/Optiscaler-Client/Optiscaler-Client).
-- Linux-установщика — «потом», см. в конце.
-- Мультиплеера с античитом — **нельзя** (см. SECURITY.md).
+The workaround: **OptiScaler + INT8 DLL + force model 2** (`Fsr4ForceModel=2`,
+old alias `Fsr4ForceEnableInt8=true`). If the force fails, OptiScaler silently
+falls back to FSR 3. On RDNA 3.5 **never set `Fsr4Update=true`** — it is a known
+cause of automatic fallback to FSR 3. The bundled profile respects this: keys are
+written only where they exist in the release ini (see the INI table below).
 
-## Суть (без магии)
+## Run the GUI (no terminal)
 
-Официально FSR 4.1.1 **INT8** — это RDNA 3 desktop (RX 7000), FP8 — RDNA 4.
-RDNA 3.5 iGPU (Z2E / 890M) AMD не открыла: нативного драйверного FSR 4 на Ally X **нет**.
+Requires **PowerShell 7** (`pwsh`) installed. Double-click:
 
-Обход: **OptiScaler + INT8 DLL + форс модели 2** (`Fsr4ForceModel=2`, старый алиас —
-`Fsr4ForceEnableInt8=true`). Если форс не сработал — у OptiScaler внутренний fallback в FSR3.
+```
+tools\Z2E-FSR41-Box.cmd
+```
 
-Проверка **только ватермарком** в игре (Insert → выбор апскейлера):
+1. **Browse…** → select the **game `.exe` file** (not a folder). The window shows
+   the resolved `exe:` and `game:` paths under the box. The last exe is remembered
+   in `%LOCALAPPDATA%\z2e-fsr41\gui.json`.
+2. Pick **FSR version** (4.1.1b / 4.1.1 / 4.0.2c, default 4.1.1b) and
+   **Inject** (dxgi / winmm / version, default dxgi).
+3. **Fetch packages** (first time) → downloads OptiScaler + FSR INT8 releases.
+4. **Install** → done. Status shows `Installed` while `<game>\.z2e-state.json` exists.
+5. **Doctor** re-checks files and INI keys; **Uninstall** removes exactly what the
+   installer copied and restores backups.
 
-| Ватермарк | Вердикт |
+The GUI never passes `--i-understand-anticheat`. If the target looks like an
+online game with anti-cheat, a MessageBox blocks the install.
+
+### Verify in-game (watermark)
+
+Press **Insert** in-game → select the upscaler → read the watermark:
+
+| Watermark | Verdict |
 |---|---|
-| `FSR4-i8` / `4.1.1` | ✅ ок |
-| `FSR3` | ❌ провал форса (fallback) |
+| `FSR4-i8` / `4.1.1` | ✅ working |
+| `FSR3` | ❌ force failed (internal fallback) |
 
-На RDNA 3.5 **НЕ ставьте `Fsr4Update=true`** — частый автооткат в FSR3. Профиль это учитывает:
-если ключа нет в ini релиза — мы его не добавляем, если есть — ставим `false`.
+### Expectations on Z2E
 
-## Ожидания на Z2E
+Image quality is clearly better than FSR 3.1 (less ghosting, steadier edges).
+**FPS often drops 10–20%** — INT8 on an iGPU is not free. This is a quality
+trade, not a free upgrade.
 
-Картинка заметно лучше FSR 3.1 (меньше шлейфов, стабильнее края).
-**FPS часто падает на 10–20%** — INT8 на iGPU дешёвый не бывает. Это компромисс качества,
-а не «бесплатный апгрейд».
+### 7-Zip
 
-## Установка
+OptiScaler releases are `.7z`. Install **7-Zip** and keep `7z` (or `7za`/`7zr`)
+on `PATH`. `.zip` assets need nothing extra. Tests (`Z2E_FAKE_PAYLOAD=1`) use zip only.
 
-Нужен PowerShell 7 (`pwsh`). Для распаковки релизов OptiScaler (`.7z`) нужен **7-Zip в PATH**
-(`7z`/`7za`/`7zr`) — для `.zip`-ассетов не нужен. В тестах (`Z2E_FAKE_PAYLOAD=1`) — только zip.
+## Anticheat warning
+
+Single-player / offline games only. Anti-cheats (EAC / BattlEye / Vanguard)
+detect render-stack injection — `install` blocks known online titles unless you
+pass `--i-understand-anticheat` (CLI only; the GUI refuses). See
+[SECURITY.md](SECURITY.md). Ban / broken-game responsibility is yours.
+
+## CLI (still fully supported)
 
 ```powershell
 git clone https://github.com/IamCaptainPepe/z2e-fsr41-box.git
 cd z2e-fsr41-box
 
-# 1. Скачать релизы (GitHub Releases API, кэш в %LOCALAPPDATA%\z2e-fsr41\cache)
 pwsh ./tools/z2e-fsr41.ps1 fetch
-
-# 2. Поставить в игру
 pwsh ./tools/z2e-fsr41.ps1 install --game "D:\Games\Foo"
-# опции: --exe path\to\game.exe  --channel stable|nightly  --fsr 4.1.1b|4.1.1|4.0.2c
-#         --inject dxgi|winmm|version  --dry-run  --i-understand-anticheat
-
-# 3. Проверить
+# options: --exe path\to\game.exe  --channel stable|nightly  --fsr 4.1.1b|4.1.1|4.0.2c
+#          --inject dxgi|winmm|version  --dry-run  --i-understand-anticheat
 pwsh ./tools/z2e-fsr41.ps1 doctor --game "D:\Games\Foo"
-
-# 4. Снять
 pwsh ./tools/z2e-fsr41.ps1 uninstall --game "D:\Games\Foo"
 ```
 
-Канал по умолчанию: OptiScaler **v0.9.4** + FSR **4.1.1b INT8** (fallback 4.1.1 → 4.0.2c),
-всё запиннено в `versions.json`.
+Default channel: OptiScaler **v0.9.4** + FSR **4.1.1b INT8** (fallback 4.1.1 → 4.0.2c),
+pinned in `versions.json`.
 
-- `install` без `--exe` сам ищет самый крупный exe в корне игры (отбрасывая
-  launcher/crash/unitycrash/easyanticheat). Неясно — требует `--exe`. Вслепую в корень
-  UE5/Phoenix-игр не ставит.
-- Существующие `dxgi.dll`, `winmm.dll`, `version.dll`, `amd_fidelityfx*.dll`,
-  `OptiScaler.ini`, `OptiScaler.dll` бэкапятся в `<game>\.z2e-backup\`.
-- Состояние (что скопировано/бэкапнуто, какие ключи ini записаны) — `<game>\.z2e-state.json`.
-  `uninstall` удаляет **только** файлы из state и возвращает бэкапы. Сейвы не трогает.
-- Имена upscaler-dll берутся из распакованного архива, а не хардкодом.
+- `install` without `--exe` picks the largest exe in the game root (skipping
+  launcher/crash/setup/easyanticheat…), falling back to a depth-3 search
+  (`bin/x64`, `Win64`); ties require `--exe`.
+- Existing `dxgi.dll`, `winmm.dll`, `version.dll`, `amd_fidelityfx*.dll`,
+  `OptiScaler.ini` are backed up to `<game>\.z2e-backup\`.
+- State (what was copied/backed up, which ini keys were written) lives in
+  `<game>\.z2e-state.json`. `uninstall` removes **only** files from state and
+  restores backups. Saves are untouched.
+- The installer copies the **whole OptiScaler bundle** and renames `OptiScaler.dll`
+  into a **single** proxy (`dxgi.dll` / `winmm.dll` / `version.dll`), per the
+  OptiScaler Manual Installation wiki. The INT8 upscaler replaces the bundle's
+  upscaler dll, keeping the canonical name from the INT8 archive.
 
-## Ключи INI и алиасы
+## INI keys and aliases
 
-Профиль: `profiles/z2e-fsr41.ini`, мержит `scripts/IniMerge.ps1` (комментарии и чужие ключи
-сохраняет; секцию `[FSR]` при отсутствии создаёт в конце файла).
+Profile: `profiles/z2e-fsr41.ini`, merged by `scripts/IniMerge.ps1` (comments and
+foreign keys preserved; `[FSR]` section appended if missing).
 
-| Ключ | Значение | Правило |
+| Key | Value | Rule |
 |---|---|---|
-| `Fsr4ForceModel` | `2` | 0 = no override, 1 = FP8, **2 = INT8**. Ставится, только если ключ есть в ini релиза |
-| `Fsr4ForceEnableInt8` | `true` | Старый алиас (notes v0.9.4). Только если ключ есть в ini релиза |
-| оба ключа | — | Ставятся оба |
-| `Fsr4Update` | `false` | Если ключ есть — `false`; если нет — **не добавляем**. `true` на RDNA 3.5 запрещено |
-| `Fsr4EnableWatermark` | `true` | Всегда |
-| `Fsr4DoNotLoadAmdxc64` | `true` | Всегда |
-| FP8 (`Fsr4ForceModel=1`) | — | На Z2E **никогда** |
+| `Fsr4ForceModel` | `2` | 0 = no override, 1 = FP8, **2 = INT8**. Only if the key exists in the release ini |
+| `Fsr4ForceEnableInt8` | `true` | Old alias (v0.9.4 notes). Only if the key exists in the release ini |
+| both keys | — | Both are set when both exist |
+| `Fsr4Update` | `false` | If present → `false`; if absent → **not added**. `true` is forbidden on RDNA 3.5 |
+| `Fsr4EnableWatermark` | `true` | Always |
+| `Fsr4DoNotLoadAmdxc64` | `true` | Always |
+| FP8 (`Fsr4ForceModel=1`) | — | **Never** on Z2E |
 
-Ключи **сверяются с OptiScaler.ini из распакованного релиза**, а не по памяти — правила выше
-реализованы в `IniMerge` как «only if present».
+Keys are validated against the unpacked `OptiScaler.ini` of the release, not from
+memory — the rules above are implemented in `IniMerge` as "only if present".
 
-## Тесты / CI
+## Tests / CI
 
-Без сети и без реальных dll:
+Headless, offline, no real dlls:
 
 ```powershell
 $env:Z2E_FAKE_PAYLOAD = '1'
@@ -113,9 +137,16 @@ pwsh ./tools/z2e-fsr41.ps1 doctor --game testdata/fake-game   # exit 0
 pwsh ./tools/z2e-fsr41.ps1 uninstall --game testdata/fake-game
 ```
 
-Fake-режим генерирует в кэш zip'ы с фейковым OptiScaler (ini с типичной секцией `[FSR]`,
-пустые dll) и фейковый INT8-архив. CI (`.github/workflows/ci.yml`) на windows-latest:
-парсинг всех `.ps1`, fake install→doctor→uninstall, проверка «в репозитории нет ни одного .dll».
+GUI selftest (same cycle through the GUI's action layer, no window, runs on Linux too):
+
+```powershell
+pwsh ./tools/z2e-gui.ps1 -SelfTest
+pwsh ./tools/z2e-gui.ps1 -Smoke   # Windows: builds the WinForms form and exits
+```
+
+CI (`.github/workflows/ci.yml`) on windows-latest: parses every `.ps1`, runs the
+fake install→doctor→uninstall cycle, runs the GUI selftest and form smoke test,
+and asserts **no `.dll` is committed**.
 
 ## Credits
 
@@ -124,24 +155,24 @@ Fake-режим генерирует в кэш zip'ы с фейковым OptiSc
   [Installation](https://github.com/optiscaler/OptiScaler/wiki/Installation),
   [Manual](https://github.com/optiscaler/OptiScaler/wiki/Manual-Installation),
   [FSR4 compatibility list](https://github.com/optiscaler/OptiScaler/wiki/fsr4-compatibility-list),
-  [OptiScaler.ini в master](https://raw.githubusercontent.com/optiscaler/OptiScaler/master/OptiScaler.ini),
+  [OptiScaler.ini in master](https://raw.githubusercontent.com/optiscaler/OptiScaler/master/OptiScaler.ini),
   [OptiPatcher](https://github.com/optiscaler/OptiPatcher))
-- [Nukem dlssg-to-fsr3](https://github.com/Nukem9/dlssg-to-fsr3) (уже в бандле OptiScaler 0.9+)
-- FSR 4 INT8 зеркала: [Agustinm28/OptiScaler-Extras](https://github.com/Agustinm28/OptiScaler-Extras/releases),
+- [Nukem dlssg-to-fsr3](https://github.com/Nukem9/dlssg-to-fsr3) (already bundled in OptiScaler 0.9+)
+- FSR 4 INT8 mirrors: [Agustinm28/OptiScaler-Extras](https://github.com/Agustinm28/OptiScaler-Extras/releases),
   [daniel-h-0/bc250-fsr4-fork](https://github.com/daniel-h-0/bc250-fsr4-fork/releases),
   [benjamimgois (fsr-int8-411b)](https://github.com/benjamimgois/OptiScaler-builds/releases/tag/fsr-int8-411b),
   [007Lore/AMD-FSR-4-INT8](https://github.com/007Lore/AMD-FSR-4-INT8/releases)
-- GUI-вдохновение (код не копировали): [Optiscaler-Client](https://github.com/Optiscaler-Client/Optiscaler-Client)
-- Гайд для Ally: [rogallylife.com](https://rogallylife.com/2025/10/14/optiscaler-fsr-4-rog-xbox-ally-x/)
+- GUI inspiration (no code copied): [Optiscaler-Client](https://github.com/Optiscaler-Client/Optiscaler-Client)
+- Ally guide: [rogallylife.com](https://rogallylife.com/2025-10-14/optiscaler-fsr-4-rog-xbox-ally-x/)
 
 ## Disclaimer
 
-Только одиночные/офлайн-игры. Античиты (EAC/BattlEye/Vanguard) детектируют подмену рендер-стека —
-`install` блокирует известные онлайн-тайтлы без флага `--i-understand-anticheat`.
-См. [SECURITY.md](SECURITY.md). Ответственность за бан/сломанную игру — на вас.
+Single-player / offline games only. Anti-cheats detect render-stack injection.
+See [SECURITY.md](SECURITY.md).
 
-## v2 идеи (не реализуем в v1)
+## v2 ideas (not in v1)
 
-- GUI — **не делать**; для GUI-сценариев есть OptiScaler Client, профиль совместим.
+- GUI: keep WinForms; for richer GUI scenarios use OptiScaler Client — the
+  profile format is compatible.
 - Linux: [Decky Framegen](https://github.com/xXJSONDeruloXx/Decky-Framegen) / [decky.xyz](https://decky.xyz/)
-  + тот же `Fsr4ForceModel=2`.
+  + the same `Fsr4ForceModel=2`.

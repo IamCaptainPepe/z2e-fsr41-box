@@ -32,6 +32,14 @@ jobs:
           pwsh -NoProfile -File tools/z2e-fsr41.ps1 doctor --game testdata/fake-game
           pwsh -NoProfile -File tools/z2e-fsr41.ps1 uninstall --game testdata/fake-game
 
+      - name: GUI selftest (headless fake cycle through the GUI action layer)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/z2e-gui.ps1 -SelfTest
+
+      - name: GUI smoke (WinForms form builds)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/z2e-gui.ps1 -Smoke
+
       - name: В репозитории нет ни одного .dll
         shell: pwsh
         run: |
