@@ -18,8 +18,8 @@ function Expand-Z2EArchive {
 }
 
 function Find-Z2EExe {
-    # Целевой exe: --exe, иначе самый крупный exe в корне игры
-    # (исключая launcher/crash/unitycrash/easyanticheat и пр.).
+    # Целевой exe: --exe, иначе самый крупный exe в корне игры;
+    # если в корня нет — ищем на глубине до 3 (bin/x64, Win64 и пр.).
     param([string]$Game, [string]$Exe)
     if ($Exe) {
         if (-not (Test-Path $Exe -PathType Leaf)) { throw "--exe не найден: $Exe" }
@@ -27,7 +27,14 @@ function Find-Z2EExe {
     }
     $bad = 'launcher|crash|setup|unins|easyanticheat|battleye|updater|redist|dxsetup|vgc'
     $exes = @(Get-ChildItem -Path $Game -Filter *.exe -File | Where-Object { $_.Name -notmatch $bad })
-    if ($exes.Count -eq 0) { throw "В корне игры нет подходящего .exe — укажи --exe (вслепую в UE5/Phoenix не ставим)." }
+    if ($exes.Count -eq 0) {
+        $exes = @(Get-ChildItem -Path $Game -Filter *.exe -File -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch $bad -and $_.FullName -notmatch '\\\.z2e-' })
+        if ($exes.Count -gt 0) {
+            Write-Host "В корне exe нет — ищу на глубине (bin/x64 и пр.): $($exes.Count) кандидат(ов)"
+        }
+    }
+    if ($exes.Count -eq 0) { throw "В игре нет подходящего .exe (корень + глубина 3) — укажи --exe (вслепую в UE5/Phoenix не ставим)." }
     $top = @($exes | Sort-Object Length -Descending)
     if ($top.Count -gt 1 -and $top[0].Length -eq $top[1].Length) {
         throw "Несколько exe одинакового размера ($($top[0].Name), $($top[1].Name) …) — укажи --exe."
@@ -99,7 +106,7 @@ function Invoke-Z2EInstall {
         Write-Host '--- DRY RUN, ничего не меняю ---'
         Write-Host "game:     $Game"
         Write-Host "exe:      $($exeItem.Name)"
-        Write-Host "inject:   $injectDllName (копия OptiScaler.dll)"
+        Write-Host "inject:   $injectDllName (OptiScaler.dll переименовывается в прокси; один прокси, как в Manual Installation)"
         Write-Host "optiscaler: $($m.optiscaler.file) ($($m.optiscaler.tag))"
         Write-Host "fsr int8: $($m.fsr_int8.file) ($($m.fsr_int8.version))"
         Write-Host "ini:      OptiScaler.ini <- мерж profiles/z2e-fsr41.ini"
@@ -112,19 +119,27 @@ function Invoke-Z2EInstall {
         Expand-Z2EArchive -Archive $osZip  -Dest (Join-Path $tmp 'os')
         Expand-Z2EArchive -Archive $fsrZip -Dest (Join-Path $tmp 'fsr')
 
-        $osDll = Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'OptiScaler.dll' | Select-Object -First 1
-        if (-not $osDll) { throw 'В архиве OptiScaler не найден OptiScaler.dll' }
         $osIniSrc = Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'OptiScaler.ini' | Select-Object -First 1
-        $osUp = @(Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'amd_fidelityfx_upscaler*.dll')
-        $fsrUp = Get-ChildItem (Join-Path $tmp 'fsr') -Recurse -Filter 'amd_fidelityfx_upscaler*.dll' | Select-Object -First 1
-        if (-not $fsrUp) { throw 'В архиве FSR INT8 не найден upscaler-диалект (amd_fidelityfx_upscaler*.dll)' }
+        # INT8 upscaler: несколько масок — в extras-архивах имя бывает не каноническое
+        $upMasks = @('amd_fidelityfx_upscaler*.dll', '*upscaler*.dll')
+        $fsrUp = $null
+        foreach ($mask in $upMasks) {
+            $fsrUp = Get-ChildItem (Join-Path $tmp 'fsr') -Recurse -Filter $mask | Select-Object -First 1
+            if ($fsrUp) { break }
+        }
+        if (-not $fsrUp) {
+            $seen = @(Get-ChildItem (Join-Path $tmp 'fsr') -Recurse -File | ForEach-Object { $_.Name }) -join ', '
+            throw "В архиве FSR INT8 не найден upscaler-диалект (маски: $($upMasks -join ', ')). Файлы в архиве: $seen — уточни структуру релиза и добавь маску."
+        }
         # Имя upscaler — каноническое из INT8-архива (то, что грузит DX12-путь OptiScaler)
         $upName = $fsrUp.Name
 
-        # 4) Бэкап существующих файлов
+        # 4) Бэкап существующих файлов (включая всё, что кладёт бандл OptiScaler)
+        $bundleFiles = @(Get-ChildItem (Join-Path $tmp 'os') -File)
+        if (-not $bundleFiles.Count) { throw 'Архив OptiScaler пуст (в корне архива нет файлов)' }
         $backupDir = Join-Path $Game '.z2e-backup'
         New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-        $watch = @($injectDllName, 'OptiScaler.dll', 'OptiScaler.ini', 'dxgi.dll', 'winmm.dll', 'version.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll', $upName) | Select-Object -Unique
+        $watch = (@($injectDllName, 'OptiScaler.dll', 'OptiScaler.ini', 'dxgi.dll', 'winmm.dll', 'version.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll', $upName) + @($bundleFiles | ForEach-Object { $_.Name })) | Select-Object -Unique
         $backups = @()
         foreach ($t in $watch) {
             $src = Join-Path $Game $t
@@ -134,13 +149,18 @@ function Invoke-Z2EInstall {
             }
         }
 
-        # 5) Копирование payload рядом с exe (Manual Installation)
+        # 5) Копирование payload рядом с exe (Manual Installation):
+        #    весь бандл OptiScaler из корня архива (nvngx/xess-прокси, amd_fidelityfx_*, ini);
+        #    OptiScaler.dll переименовывается в ОДИН прокси ($Inject.dll) — двойной inject не нужен.
         $copied = @()
-        Copy-Item $osDll.FullName (Join-Path $Game 'OptiScaler.dll') -Force; $copied += 'OptiScaler.dll'
-        Copy-Item (Join-Path $Game 'OptiScaler.dll') (Join-Path $Game $injectDllName) -Force; $copied += $injectDllName
-        foreach ($d in (Get-ChildItem (Join-Path $tmp 'os') -Recurse -Filter 'amd_fidelityfx_*.dll')) {
-            Copy-Item $d.FullName (Join-Path $Game $d.Name) -Force
-            if ($d.Name -notin $copied) { $copied += $d.Name }
+        foreach ($f in $bundleFiles) {
+            if ($f.Name -eq 'OptiScaler.dll') {
+                Copy-Item $f.FullName (Join-Path $Game $injectDllName) -Force
+                $copied += $injectDllName
+            } else {
+                Copy-Item $f.FullName (Join-Path $Game $f.Name) -Force
+                if ($f.Name -notin $copied) { $copied += $f.Name }
+            }
         }
 
         # 6) INT8 upscaler: заменяем одноимённый файл бандла реальным INT8-файлом

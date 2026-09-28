@@ -48,7 +48,8 @@ RDNA 3.5 iGPU (Z2E / 890M) AMD не открыла: нативного драй�
 
 ## Установка
 
-Нужен PowerShell 7 (`pwsh`).
+Нужен PowerShell 7 (`pwsh`). Для распаковки релизов OptiScaler (`.7z`) нужен **7-Zip в PATH**
+(`7z`/`7za`/`7zr`) — для `.zip`-ассетов не нужен. В тестах (`Z2E_FAKE_PAYLOAD=1`) — только zip.
 
 ```powershell
 git clone https://github.com/IamCaptainPepe/z2e-fsr41-box.git
