@@ -232,9 +232,10 @@ $advPanel.Controls.Add($cmbInject)
 $LogLines = 8
 $lineH = [int]($FLogF.Height * 1.35) + 2
 $yLog = $yPanel + 12
+$logH = ($lineH * ($LogLines + 1)) + 8
 $txtLog = New-Object System.Windows.Forms.TextBox
 $txtLog.Location = New-Object System.Drawing.Point($M, $yLog)
-$txtLog.Size = New-Object System.Drawing.Size($cw, ($lineH * ($LogLines + 1)) + 8)
+$txtLog.Size = New-Object System.Drawing.Size($cw, $logH)
 $txtLog.Multiline = $true
 $txtLog.ReadOnly = $true
 $txtLog.ScrollBars = 'Vertical'
